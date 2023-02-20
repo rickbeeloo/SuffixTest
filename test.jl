@@ -4,12 +4,18 @@ using Random
 Random.seed!(1234)
 using BenchmarkTools
 
-const LIBSAIS = "libsais.so.2"
+const LIBSAIS = "/home/codegodz/tools/fais/libsais/libsais.so.2"
 const MASK = Int32(1<<30) 
 
 
+struct RefLoc 
+    ref_id::Int32 
+    loc::Int64 
+    reversed::Bool
+end
+
 struct Color
-    origin::Vector{Int32}
+    origin::Vector{RefLoc}
     max_len::Vector{Int32}
 end
 
@@ -141,7 +147,9 @@ function find_longest_match(ref::Vector{Int32}, position::Int64, sa::Vector{Int3
     return concat_matching_indexes
 end
 
-function slide_over_ref(ref_id::Int32, ref::Vector{Int32}, sa::Vector{Int32}, query_concat::Vector{Int32}, query_colors::Color, size_map::Dict{Int32,Int64})
+
+
+function slide_over_ref(ref_id::Int32, ref::Vector{Int32}, sa::Vector{Int32}, query_concat::Vector{Int32}, query_colors::Color, size_map::Dict{Int32,Int64}, reversed::Bool)
     @inbounds for i in 1:length(ref)
         # Find all matches with the Qs for this sub-ref region 
         query_match_locations = find_longest_match(ref, i, sa, query_concat)
@@ -155,7 +163,7 @@ function slide_over_ref(ref_id::Int32, ref::Vector{Int32}, sa::Vector{Int32}, qu
                 for i in m
                     if query_colors.max_len[i] < q_match_size
                         query_colors.max_len[i] = q_match_size
-                        query_colors.origin[i] = ref_id
+                        query_colors.origin[i] = RefLoc(ref_id, i, reversed)
                     end
                 end
             end
@@ -166,11 +174,11 @@ end
 function find_longest_matches!(ref_id::Int32, ref::Vector{Int32}, sa::Vector{Int32}, query_concat::Vector{Int32}, query_colors::Color, size_map::Dict{Int32,Int64})
     # Convert the ref nodes to search forward matches
     convert_nodes!(ref)
-    slide_over_ref(ref_id, ref, sa, query_concat, query_colors, size_map)
+    slide_over_ref(ref_id, ref, sa, query_concat, query_colors, size_map, false)
 
     # Then flip for reverse matches 
     ref = flipnode.(reverse!(ref))
-    slide_over_ref(ref_id, ref, sa, query_concat, query_colors, size_map)
+    slide_over_ref(ref_id, ref, sa, query_concat, query_colors, size_map, true)
 
 end
 
@@ -190,7 +198,7 @@ function start()
     concat_arr, sa = create_k_suffix_array(queries, Int32(0))
     
     # Make a color vector holding the max length + origin 
-    query_colors = Color(zeros(Int32, length(concat_arr)), zeros(Int32, length(concat_arr)))
+    query_colors = Color(Vector{RefLoc}(undef,length(concat_arr)), zeros(Int32, length(concat_arr)))
 
     # Generate test nucleotide size mapping
     unique_nodes = Set(reduce(vcat, queries)) 
@@ -222,6 +230,7 @@ function start()
     println("Ref2: ", ref2)
     println() 
     
+    # Mask to add back the split identifiers from the concat 
     println("ori\tlen")
     for (i, (origin, size)) in enumerate(zip(query_colors.origin,query_colors.max_len))
         if concat_arr[i] < 0
@@ -236,5 +245,5 @@ end
 
 start()
 
-
+println(matches_till(Int32[1,2,3], Int32[1,2,3,4,5]))
 #println(matches_till(Int32[10,7,3], Int32[1,2,3,4,5]))
