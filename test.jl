@@ -222,10 +222,6 @@ function start()
     println("Ref2: ", ref2)
     println() 
     
-    # Mask to add back the split identifiers from the concat 
-    m = concat_arr .< Int32(0) 
-    query_colors.origin[m] = concat_arr[m]
-    query_colors.max_len[m] = concat_arr[m]
     println("ori\tlen")
     for (i, (origin, size)) in enumerate(zip(query_colors.origin,query_colors.max_len))
         if concat_arr[i] < 0
