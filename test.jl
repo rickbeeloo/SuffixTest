@@ -4,7 +4,7 @@ using Random
 Random.seed!(1234)
 using BenchmarkTools
 
-const LIBSAIS = "/home/codegodz/tools/fais/libsais/libsais.so.2"
+const LIBSAIS = "libsais.so.2"
 const MASK = Int32(1<<30) 
 
 
