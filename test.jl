@@ -4,7 +4,7 @@ using Random
 Random.seed!(1234)
 using BenchmarkTools
 
-const LIBSAIS = "libsais.so.2"
+const LIBSAIS = "/home/codegodz/tools/fais/libsais/libsais.so.2"
 const MASK = Int32(1<<30) 
 
 
@@ -78,7 +78,7 @@ function locate_insert_point(sa::Vector{Int32}, concat_arr::Vector{Int32}, ref::
         elseif ref > suffix
             low = mid + 1
         else 
-            # then should be equal, exact match
+            # then they should be equal, exact match
             return mid 
         end
     end
@@ -100,7 +100,7 @@ function get_suffix_match_location(sa::Vector{Int32}, concat_arr::Vector{Int32},
     suffix_start = sa[point_in_sa]
     # Get a view of the whole suffix to iterate over
     suffix = view(concat_arr, suffix_start:length(concat_arr))
-    # Check for how long this equals the array_to_find
+    # Check for how long the suffix is the same as the array_to_find
     match_size = matches_till(array_to_find, suffix)
     match_size == 0 && return nothing 
     return suffix_start:suffix_start+match_size-1
@@ -151,7 +151,7 @@ function slide_over_ref(ref_id::Int32, ref::Vector{Int32}, sa::Vector{Int32}, qu
                 q_match_region = view(query_concat, m)
                 # Get the nt sizes from the size map 
                 q_match_size = sum(get.(Ref(size_map), q_match_region, 0))
-                # If the sizes are longer (based on the colors) replace origin and max size
+                # If the sizes are bigger (based on the colors) replace origin and max size
                 for i in m
                     if query_colors.max_len[i] < q_match_size
                         query_colors.max_len[i] = q_match_size
@@ -164,7 +164,7 @@ function slide_over_ref(ref_id::Int32, ref::Vector{Int32}, sa::Vector{Int32}, qu
 end
 
 function find_longest_matches!(ref_id::Int32, ref::Vector{Int32}, sa::Vector{Int32}, query_concat::Vector{Int32}, query_colors::Color, size_map::Dict{Int32,Int64})
-    # Conver the ref nodes to search forward matches
+    # Convert the ref nodes to search forward matches
     convert_nodes!(ref)
     slide_over_ref(ref_id, ref, sa, query_concat, query_colors, size_map)
 
@@ -178,13 +178,13 @@ end
 
 function start()
     # Test queries
-   # q1 = Int32[1,2,3,4,100,101,102]
-    q2 = Int32[100, 101, 1,2,3,4, 100]
-    queries = [q2]
+    q1 = Int32[6, 100, 101, -5, -3]
+    q2 = Int32[100, 101, 1,2,3,4]
+    queries = [q1, q2]
 
     # The refs 
-    ref1 = Int32[100, 101,2,3,4]
-    ref2 = Int32[100, -4, -3, -2, -1]
+    ref1 = Int32[100, 101, 2,3,4, 3, 5]
+    ref2 = Int32[100, -4, -3, -2, -1, 90]
 
     # Concat queries and build suffix array
     concat_arr, sa = create_k_suffix_array(queries, Int32(0))
@@ -192,17 +192,18 @@ function start()
     # Make a color vector holding the max length + origin 
     query_colors = Color(zeros(Int32, length(concat_arr)), zeros(Int32, length(concat_arr)))
 
-    # Generate some random numbers for the node sizes
+    # Generate test nucleotide size mapping
     unique_nodes = Set(reduce(vcat, queries)) 
     #size_map = Dict(unique_nodes .=> rand(1:100,length(unique_nodes)))
-    size_map = Dict(unique_nodes .=> ones(Int64, length(unique_nodes))) # Just easier to check for now if sizes are 1
+    # Just easier to check for now if sizes are 1:
+    size_map = Dict(unique_nodes .=> ones(Int64, length(unique_nodes))) 
     println(size_map)
 
-    # Do the node converstion
+    # Find the matches for the Qs with Ref1 and Ref2
     find_longest_matches!(Int32(1), ref1, sa, concat_arr, query_colors, size_map)
     find_longest_matches!(Int32(2), ref2, sa, concat_arr, query_colors, size_map)
 
-    # Get back the concat split 
+    # Some output printing
     println("Suffix array")
     for (i, si) in enumerate(sa)
         println(i, " -> ", view(concat_arr, si:length(concat_arr)))
@@ -225,8 +226,16 @@ function start()
     m = concat_arr .< Int32(0) 
     query_colors.origin[m] = concat_arr[m]
     query_colors.max_len[m] = concat_arr[m]
-    println("Origins: ",  query_colors.origin)
-    println("Lens: ", query_colors.max_len)
+    println("ori\tlen")
+    for (i, (origin, size)) in enumerate(zip(query_colors.origin,query_colors.max_len))
+        if concat_arr[i] < 0
+            println()
+        else
+            println(origin, "\t", size)
+        end
+    end
+    #println("Origins: ",  query_colors.origin)
+    #println("Lens: ", query_colors.max_len)
 end 
 
 start()
